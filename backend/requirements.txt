@@ -81,7 +81,6 @@ paramiko==2.12.0
     #   feria-backend (pyproject.toml)
     #   sshtunnel
 pillow==12.2.0
-psycopg2-binary==2.9.12
     # via qrcode
 pyasn1==0.6.3
     # via pyasn1-modules
