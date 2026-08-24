@@ -3,7 +3,7 @@
 
 services:
     app:
-        image: ${APP_IMAGE:-ghcr.io/monknow/proyecto-criptografia-servicio-social:latest}
+        image: ${APP_IMAGE:-ghcr.io/Monknow/proyecto-criptografia-servicio-social:latest}
         container_name: feria_app
         restart: unless-stopped
         env_file:
