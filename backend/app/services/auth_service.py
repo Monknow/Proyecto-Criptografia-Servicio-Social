@@ -606,7 +606,7 @@ async def verify_totp_and_get_token(
                 "ADM"
                 if effective_role == "admin"
                 else "EMP"
-                if effective_role == "empresa"
+                if effective_role == "socioformador"
                 else "GGL"
             )
             id_matricula_final = f"{prefix}-{uuid.uuid4().hex[:8].upper()}"
@@ -728,7 +728,7 @@ async def verify_totp_and_get_token(
     # 6. Determinar redirección según rol
     redirect_map = {
         "alumno": "/dashboard",
-        "empresa": "/empresa/escaner",
+        "socioformador": "/socioformador/escaner",
         "admin": "/admin/dashboard",
     }
     redirect_url = redirect_map.get(effective_role, "/dashboard")
