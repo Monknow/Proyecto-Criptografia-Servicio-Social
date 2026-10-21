@@ -105,6 +105,10 @@ body,
     font-size: clamp(12px, 2.5vmin, 18px);
 }
 
+html.dark {
+    color-scheme: dark light;
+}
+
 /* input-otp: fix giant visible character on WebKit/iOS.
    The library sets font-size=container-height but only hides text via
    color:transparent — WebKit also needs -webkit-text-fill-color set. */

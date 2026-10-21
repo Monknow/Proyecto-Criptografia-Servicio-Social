@@ -39,7 +39,6 @@ const SCANNER_CONFIG = {
 };
 
 function OccupancyMeter({current, max, percent}) {
-    percent = 50;
     const barTone = percent >= 100 ? "bg-emerald-600" : percent >= 75 ? "bg-amber-400" : "bg-emerald-400";
 
     // Interpolate background from the original black/30 toward a muted green as occupancy rises

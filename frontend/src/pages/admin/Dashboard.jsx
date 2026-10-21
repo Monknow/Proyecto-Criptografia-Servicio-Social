@@ -823,6 +823,10 @@ export default function AdminDashboard() {
     const companyGroupKeys = useMemo(() => Object.keys(proyectosPorSocioformador), [proyectosPorSocioformador]);
 
     useEffect(() => {
+        setExpandedSocioformadores(companyGroupKeys);
+    }, [availability, companyGroupKeys]);
+
+    useEffect(() => {
         if (activeSection !== "proyectos") return;
 
         setExpandedSocioformadores((prev) => {

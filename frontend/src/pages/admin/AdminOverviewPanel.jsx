@@ -16,6 +16,51 @@ const DARK_TOOLTIP_PROPS = {
     labelStyle: {color: "#f8fafc"},
 };
 
+const MOCK_PROYECTOS_DEMANDA = [
+    {
+        proyecto: "Huertos urbanos comunitarios",
+        socioformador: "Fundación Verde MX",
+        ocupacion_pct: 95.0,
+        cupo_actual: 19,
+        capacidad_max: 20,
+    },
+    {
+        proyecto: "Alfabetización digital adultos",
+        socioformador: "Red Educa",
+        ocupacion_pct: 86.7,
+        cupo_actual: 13,
+        capacidad_max: 15,
+    },
+    {
+        proyecto: "Apoyo en banco de alimentos",
+        socioformador: "Banco de Alimentos CDMX",
+        ocupacion_pct: 80.0,
+        cupo_actual: 24,
+        capacidad_max: 30,
+    },
+    {
+        proyecto: "Tutorías de matemáticas",
+        socioformador: "Escuela Primaria Benito Juárez",
+        ocupacion_pct: 70.0,
+        cupo_actual: 7,
+        capacidad_max: 10,
+    },
+    {
+        proyecto: "Rescate animal y adopciones",
+        socioformador: "Patitas Felices A.C.",
+        ocupacion_pct: 62.5,
+        cupo_actual: 5,
+        capacidad_max: 8,
+    },
+    {
+        proyecto: "Limpieza de áreas verdes",
+        socioformador: "Colectivo Parques Vivos",
+        ocupacion_pct: 45.0,
+        cupo_actual: 9,
+        capacidad_max: 20,
+    },
+];
+
 function formatDateLabel(value) {
     if (!value) return "Sin fecha";
     const date = new Date(value);
@@ -79,9 +124,9 @@ function AttentionList({title, count, tone, items, emptyText, renderItem}) {
     };
 
     return (
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+        <div className="relative rounded-2xl border border-white/10 bg-black/20 p-4 max-h-[500px] overflow-y-auto">
             <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
+                <div className="">
                     <p className="text-sm text-white">{title}</p>
                     <p className="text-xs text-white/50">Acciones prioritarias del evento</p>
                 </div>
@@ -475,8 +520,8 @@ export default function AdminOverviewPanel({onOpenProjects, onOpenStats}) {
                 </SectionCard>
             </div>
 
-            <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-                <SectionCard
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-1">
+                {/* <SectionCard
                     title="Carreras con más alumnos pendientes"
                     subtitle="Dónde conviene concentrar seguimiento o comunicación">
                     <RankingList
@@ -487,7 +532,7 @@ export default function AdminOverviewPanel({onOpenProjects, onOpenStats}) {
                         emptyText="No hay pendientes por carrera para mostrar."
                         formatter={(value, item) => `${value} pendientes de ${item.registrados}`}
                     />
-                </SectionCard>
+                </SectionCard> */}
 
                 <SectionCard
                     title="Socioformadores con más alumnos colocados"
