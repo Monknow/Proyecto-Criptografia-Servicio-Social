@@ -174,9 +174,9 @@ async def iniciar_evento(db: AsyncSession, id_evento: int) -> dict:
 async def crear_evento(db: AsyncSession, datos) -> dict:
     """Crea un nuevo evento y lo activa, desactivando el anterior."""
     # Desactivar evento actual
-    result = await db.execute(select(Evento).where(Evento.activo == True))
-    for ev in result.scalars().all():
-        ev.activo = False
+    #result = await db.execute(select(Evento).where(Evento.activo == True))
+    #for ev in result.scalars().all():
+    #    ev.activo = False
 
     nuevo = Evento(
         nombre=datos.nombre,

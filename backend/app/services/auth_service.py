@@ -792,13 +792,12 @@ async def _ensure_padron_alumno_eventos(
     if effective_role != "alumno":
         return
 
-    ya_tiene = await db.execute(
-        select(UsuarioEvento.id)
+    result = await db.execute(
+        select(Evento.periodo)
+        .join(UsuarioEvento, UsuarioEvento.id_evento == Evento.id_evento)
         .where(UsuarioEvento.id_matricula == usuario.id_matricula)
-        .limit(1)
     )
-    if ya_tiene.scalar_one_or_none() is not None:
-        return
+    periodos_usuario = set(result.scalars().all())
 
     en_padron = await db.execute(
         select(PadronAlumno.id_matricula).where(
@@ -808,14 +807,16 @@ async def _ensure_padron_alumno_eventos(
     if not en_padron.scalar_one_or_none():
         return
 
-    evento_res = await db.execute(
+    result = await db.execute(
         select(Evento)
         .where(Evento.activo.is_(True))
-        .order_by(Evento.id_evento)
-        .limit(1)
+        .order_by(Evento.anio, Evento.id_evento)
     )
-    evento = evento_res.scalars().first()
-    if evento:
+    evento_activos = result.scalars().all()
+
+    for evento in evento_activos:
+        if evento.periodo in periodos_usuario:
+            continue
         db.add(
             UsuarioEvento(
                 id_matricula=usuario.id_matricula,
