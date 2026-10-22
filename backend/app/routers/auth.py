@@ -151,22 +151,26 @@ async def api_complete_profile(
         user.semestre = datos.semestre
 
     result = await db.execute(
-        select(Evento).where(Evento.periodo == datos.periodo).order_by(Evento.id_evento.desc())
+        select(Evento).where(Evento.id_evento.in_(datos.eventos_seleccionados), Evento.activo.is_(True)).order_by(Evento.id_evento.desc())
     )
-    evento = result.scalars().first()
+    eventos = result.scalars().all()
 
-    if not evento:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No existe un evento activo para el periodo '{datos.periodo}'. Contacta a tu coordinador.",
-        )
+    ids_encontrados = {evento.id_evento for evento in eventos}
+    ids_solicitados = set(datos.eventos_seleccionados)
 
-    check = await db.execute(select(UsuarioEvento).where(
-        UsuarioEvento.id_matricula == user.id_matricula,
-        UsuarioEvento.id_evento == evento.id_evento
-    ))
-    if not check.scalar_one_or_none():
-        db.add(UsuarioEvento(id_matricula=user.id_matricula, id_evento=evento.id_evento))
+    if ids_encontrados != ids_solicitados:
+        raise HTTPException(status_code=400, detail="Uno o más eventos seleccionados no existen o no están activos.")
+
+    for evento in eventos:
+        check = await db.execute(select(UsuarioEvento).where(
+            UsuarioEvento.id_matricula == user.id_matricula,
+            UsuarioEvento.id_evento == evento.id_evento
+        ))
+        usuario_evento = check.scalar_one_or_none()
+        if usuario_evento is None:
+            db.add(UsuarioEvento(id_matricula=user.id_matricula, id_evento=evento.id_evento, es_participante=False, preregistrado=True)) 
+        else:
+            usuario_evento.preregistrado = True
 
     await db.commit()
     return {"message": "Perfil actualizado exitosamente"}

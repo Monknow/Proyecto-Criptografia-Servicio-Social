@@ -5,26 +5,43 @@ import { Calendar, Mail, Phone, FileText, ArrowLeft, Loader2, ChevronDown } from
 import { apiUrl } from "@/lib/api";
 
 // ─── Opciones estáticas ────────────────────────────────────────────
-const PERIODOS = [
-  { label: "Febrero – Junio 2026",    value: "FEB_JUN"  },
-  { label: "Agosto – Diciembre 2026", value: "AGO_DIC"  },
-  { label: "Invierno 2026",           value: "INVIERNO" },
-];
 
 // ─── Componente ────────────────────────────────────────────────────
 export function StudentProfileForm({ initialData, onSubmit, onCancel }) {
+  const [eventos, setEventos] = useState([]);
+  const [cargandoEventos, setCargandoEventos] = useState(true);
   const [formData, setFormData] = useState({
-    periodo:              initialData?.periodo              || "FEB_JUN",
-    // Datos de contacto
-    correo_alterno:       initialData?.correo_alterno       || "",
-    celular:              initialData?.celular              || "",
-    descripcion_personal: initialData?.descripcion_personal || "",
+  eventos_seleccionados: initialData?.eventos_seleccionados || [],
+  correo_alterno: initialData?.correo_alterno || "",
+  celular: initialData?.celular || "",
+  descripcion_personal: initialData?.descripcion_personal || "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError]               = useState(null);
   const [periodoOpen, setPeriodoOpen]   = useState(false);
   const periodoRef = useRef(null);
+  useEffect(() => {
+  const cargarEventos = async () => {
+    try {
+      const res = await fetch(apiUrl("/api/v1/auth/eventos"), {
+        credentials: "include",
+      });
 
+      if (!res.ok) {
+        throw new Error("No se pudieron cargar los periodos activos.");
+      }
+
+      const data = await res.json();
+      setEventos(data);
+    } catch (err) {
+      setError(err.message || "Error al cargar los periodos.");
+    } finally {
+      setCargandoEventos(false);
+    }
+  };
+
+  cargarEventos();
+  }, []);
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (periodoRef.current && !periodoRef.current.contains(e.target)) {
@@ -37,8 +54,8 @@ export function StudentProfileForm({ initialData, onSubmit, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.periodo) {
-      setError("Selecciona el periodo de servicio social.");
+    if (formData.eventos_seleccionados.length === 0) {
+      setError("Selecciona al menos un periodo de servicio social.");
       return;
     }
 
@@ -67,10 +84,11 @@ export function StudentProfileForm({ initialData, onSubmit, onCancel }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          periodo: formData.periodo,
-        }),
+          eventos_seleccionados: formData.eventos_seleccionados,
+          }),
         credentials: "include",
       });
+  
 
       if (!profileRes.ok) {
         const d = await profileRes.json();
@@ -105,6 +123,27 @@ export function StudentProfileForm({ initialData, onSubmit, onCancel }) {
   };
 
   const field   = (key, val) => setFormData(prev => ({ ...prev, [key]: val }));
+  const togglePeriodo = (idEvento) => {
+  setFormData((prev) => {
+    const seleccionados = prev.eventos_seleccionados;
+
+    if (seleccionados.includes(idEvento)) {
+      return {
+        ...prev,
+        eventos_seleccionados: seleccionados.filter((id) => id !== idEvento),
+      };
+    }
+
+    if (seleccionados.length >= 2) {
+      return prev;
+    }
+
+    return {
+      ...prev,
+      eventos_seleccionados: [...seleccionados, idEvento],
+    };
+  });
+};
   const inputCls = "h-11 rounded-xl bg-white/[0.08] border-white/15 text-white placeholder:text-white/25 text-sm px-4 focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400/40 hover:border-white/20 transition-all duration-200 w-full border outline-none";
   const selectCls = "w-full h-11 rounded-xl bg-white/[0.08] border border-white/15 text-white text-sm px-4 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400/40 hover:border-white/20 transition-all duration-200";
   const labelCls  = "text-[11px] text-white/45 uppercase tracking-[0.15em] font-medium flex items-center gap-1.5 ml-0.5";
@@ -138,21 +177,40 @@ export function StudentProfileForm({ initialData, onSubmit, onCancel }) {
 
           <form onSubmit={handleSubmit} className="space-y-5">
 
-            {/* Periodo */}
-            <p className="text-[10px] text-white/30 uppercase tracking-[0.2em] mb-1">Inscripción al periodo</p>
+            
+            {/* Periodos */}
+            <p className="text-[10px] text-white/30 uppercase tracking-[0.2em] mb-1">
+              Inscripción a los periodos
+            </p>
+
             <div className="space-y-2">
-              <label className={labelCls}><Calendar className="w-3 h-3 text-blue-400/70" />Periodo de Servicio Social</label>
+              <label className={labelCls}>
+                <Calendar className="w-3 h-3 text-blue-400/70" />
+                Periodos de Servicio Social (máximo 2)
+              </label>
+
               <div className="relative" ref={periodoRef}>
                 <button
                   type="button"
-                  onClick={() => setPeriodoOpen(o => !o)}
+                  onClick={() => setPeriodoOpen((o) => !o)}
                   className={`${selectCls} flex items-center justify-between text-left cursor-pointer`}
                 >
-                  <span className={formData.periodo ? "text-white" : "text-white/40"}>
-                    {PERIODOS.find(p => p.value === formData.periodo)?.label || "Selecciona un periodo"}
+                  <span className="truncate text-white">
+                    {formData.eventos_seleccionados.length
+                      ? eventos
+                        .filter((ev) => formData.eventos_seleccionados.includes(ev.id_evento))
+                        .map((ev) => ev.nombre)
+                        .join(", ")
+                      : "Selecciona uno o dos periodos"}
                   </span>
-                  <ChevronDown className={`w-4 h-4 text-white/40 transition-transform duration-200 ${periodoOpen ? "rotate-180" : ""}`} />
+
+                  <ChevronDown
+                    className={`w-4 h-4 text-white/40 transition-transform duration-200 ${
+                      periodoOpen ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
+
                 <AnimatePresence>
                   {periodoOpen && (
                     <motion.ul
@@ -160,29 +218,53 @@ export function StudentProfileForm({ initialData, onSubmit, onCancel }) {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -6 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute z-50 mt-2 w-full rounded-xl bg-zinc-900/95 border border-white/15 backdrop-blur-xl shadow-[0_12px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+                      className="absolute z-50 mt-2 w-full rounded-xl bg-zinc-900 border border-white/15 shadow-xl overflow-hidden"
                     >
-                      {PERIODOS.map(p => {
-                        const selected = formData.periodo === p.value;
+                      {eventos.map((ev) => {
+                        const selected = formData.eventos_seleccionados.includes(ev.id_evento);
+                        const maxReached =
+                          formData.eventos_seleccionados.length >= 2 && !selected;
+
                         return (
                           <li
-                            key={p.value}
-                            onClick={() => { field("periodo", p.value); setPeriodoOpen(false); }}
-                            className={`px-4 py-3 text-sm cursor-pointer transition-colors duration-150 ${
-                              selected
-                                ? "bg-blue-500/20 text-white"
-                                : "text-white/80 hover:bg-white/10 hover:text-white"
-                            }`}
+                            key={ev.id_evento}
+                            onClick={() => {
+                              if (!maxReached) {
+                                togglePeriodo(ev.id_evento);
+                              }
+                            }}
+                            className={`px-4 py-3 text-sm flex items-center gap-3 transition-colors ${
+                              maxReached
+                                ? "text-white/25 cursor-not-allowed"
+                                : "cursor-pointer hover:bg-white/10"
+                            } ${selected ? "bg-blue-500/20 text-white" : "text-white/80"}`}
                           >
-                            {p.label}
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              readOnly
+                              className="accent-blue-500"
+                            />
+                            {ev.nombre}
                           </li>
                         );
                       })}
+
+                      <li className="border-t border-white/10 px-4 py-2">
+                        <button
+                          type="button"
+                          onClick={() => setPeriodoOpen(false)}
+                          className="text-xs text-blue-300 hover:text-blue-200"
+                        >
+                          Listo
+                        </button>
+                      </li>
                     </motion.ul>
                   )}
                 </AnimatePresence>
               </div>
             </div>
+
 
             {/* ── Separador ── */}
             <div className="border-t border-white/10 pt-5">

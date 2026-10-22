@@ -52,6 +52,5 @@ class CompleteProfileRequest(BaseModel):
     """Schema para completar el perfil después de un registro de Google."""
     carrera: str | None = Field(None, min_length=2, description="Siglas de la carrera, ej: ITC")
     semestre: int | None = Field(None, ge=1, le=12, description="Semestre actual, ej: 5")
-    periodo: str = Field(..., description="Periodo de interés, ej: FEB_JUN")
-
+    eventos_seleccionados: list[int] = Field(..., min_length=1, max_length=2, description="IDs de los eventos en los que desea inscribirse")
 
