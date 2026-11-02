@@ -269,6 +269,8 @@ async def generar_qr_payload(
         "perfil_incompleto": False,
         "estado": "activo",
         "datos_actuales": {
+            "carrera": usuario.carrera,
+            "semestre": usuario.semestre,
             "correo_alterno": usuario.correo_alterno,
             "celular": usuario.celular,
             "descripcion_personal": usuario.descripcion_personal
@@ -352,6 +354,10 @@ async def actualizar_perfil_alumno(
         usuario.celular = data["celular"]
     if "descripcion_personal" in data:
         usuario.descripcion_personal = data["descripcion_personal"]
+    if data.get("carrera"):
+        usuario.carrera = data["carrera"]
+    if data.get("semestre") is not None:
+        usuario.semestre = data["semestre"]
 
     await db.commit()
     await db.refresh(usuario)
@@ -361,4 +367,6 @@ async def actualizar_perfil_alumno(
         "correo_alterno": usuario.correo_alterno,
         "celular": usuario.celular,
         "descripcion_personal": usuario.descripcion_personal,
+        "carrera": usuario.carrera,
+        "semestre": usuario.semestre,
     }

@@ -535,7 +535,7 @@ function EnrolledView({inscripcion, eventoNombre}) {
 }
 
 // ─── Event Card (orchestrator) ───────────────────────────────────
-const EventCard = ({evento, onEnrollmentDetected}) => {
+const EventCard = ({evento, onEnrollmentDetected, onProfileSaved}) => {
     // Un único objeto de estado para evitar re-renders múltiples al actualizar el QR
     const [qrState, setQrState] = useState({
         qrPayload: null,
@@ -660,7 +660,10 @@ const EventCard = ({evento, onEnrollmentDetected}) => {
                                 initialProfileData={initialProfileData}
                                 isEditing={isEditing}
                                 onToggleEdit={setIsEditing}
-                                onProfileUpdate={() => fetchQR()}
+                                onProfileUpdate={() => {
+                                    fetchQR();
+                                    onProfileSaved?.();
+                                }}
                                 estado={estado}
                             />
                         </motion.div>
@@ -690,8 +693,21 @@ export default function Dashboard() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [apiError, setApiError] = useState(null);
+    const [selectedEventoId, setSelectedEventoId] = useState(null);
 
     const navigate = useNavigate();
+
+    // Evento mostrado: el seleccionado, o por defecto el primero con QR activo (iniciado, participante y sin inscripción)
+    const selectedEvento = useMemo(() => {
+        const eventos = data?.eventos;
+        if (!eventos?.length) return null;
+        return (
+            eventos.find((e) => e.id_evento === selectedEventoId) ??
+            eventos.find((e) => e.iniciado && e.es_participante && !e.inscrito) ??
+            eventos[0]
+        );
+    }, [data?.eventos, selectedEventoId]);
+    const selectedAccesoBloqueado = selectedEvento && (!selectedEvento.iniciado || !selectedEvento.es_participante);
 
     const refreshEnrollmentStatus = useCallback(async () => {
         try {
@@ -756,6 +772,18 @@ export default function Dashboard() {
             });
         } catch {
             // Best-effort polling to keep enrollment status fresh.
+        }
+    }, []);
+
+    // Refresca datos del alumno (carrera, semestre) tras editar su perfil
+    const refreshStudentInfo = useCallback(async () => {
+        try {
+            const res = await fetch(apiUrl("/api/v1/alumno/dashboard"), {credentials: "include"});
+            if (!res.ok) return;
+            const d = await res.json();
+            setData((prev) => (prev ? {...prev, carrera: d.carrera, semestre: d.semestre} : d));
+        } catch {
+            // Best-effort; el encabezado se actualizará en la próxima carga.
         }
     }, []);
 
@@ -930,27 +958,62 @@ export default function Dashboard() {
                                 </p>
                             </motion.div>
                         ) : (
-                            data.eventos.map((evento, i) => {
-                                const accesoBloqueado = !evento.iniciado || !evento.es_participante;
-                                return (
+                            <>
+                                {data.eventos.length > 1 && (
+                                    <div className="flex flex-col items-center gap-3">
+                                        <p className="text-[11px] uppercase tracking-wider text-white/55 font-normal">
+                                            Selecciona un evento
+                                        </p>
+                                        <div className="flex flex-wrap items-center justify-center gap-2">
+                                            {data.eventos.map((evento) => {
+                                                const isSelected = evento.id_evento === selectedEvento?.id_evento;
+                                                const accesoBloqueado = !evento.iniciado || !evento.es_participante;
+                                                return (
+                                                    <button
+                                                        key={evento.id_evento}
+                                                        type="button"
+                                                        onClick={() => setSelectedEventoId(evento.id_evento)}
+                                                        className={cn(
+                                                            "px-4 py-2 rounded-full text-sm font-normal transition-colors border inline-flex items-center gap-2",
+                                                            isSelected
+                                                                ? "bg-blue-600/30 border-blue-500/40 text-white"
+                                                                : "bg-white/5 border-white/10 text-white/70 hover:text-white",
+                                                        )}>
+                                                        {evento.inscrito ? (
+                                                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                                        ) : accesoBloqueado ? (
+                                                            <Calendar className="w-4 h-4 text-white/40" />
+                                                        ) : (
+                                                            <QrCode className="w-4 h-4" />
+                                                        )}
+                                                        {evento.nombre}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
                                     <motion.div
-                                        key={evento.id_evento}
+                                        key={selectedEvento.id_evento}
                                         initial={{opacity: 0, scale: 0.98}}
                                         animate={{opacity: 1, scale: 1}}
-                                        transition={{delay: i * 0.1, duration: 0.5}}>
-                                        {accesoBloqueado ? (
+                                        transition={{duration: 0.4}}>
+                                        {selectedAccesoBloqueado ? (
                                             <div className="bg-black/35 backdrop-blur-md rounded-3xl border border-white/15 p-10 flex flex-col items-center text-center shadow-2xl">
                                                 <Calendar className="w-12 h-12 text-white/25 mb-4" />
-                                                <h3 className="text-lg font-normal text-white mb-1">{evento.nombre}</h3>
+                                                <h3 className="text-lg font-normal text-white mb-1">
+                                                    {selectedEvento.nombre}
+                                                </h3>
                                                 <p className="text-xs text-white/45 uppercase tracking-wider mb-4">
-                                                    {evento.periodo} {evento.anio}
+                                                    {selectedEvento.periodo} {selectedEvento.anio}
                                                 </p>
-                                                {!evento.iniciado ? (
+                                                {!selectedEvento.iniciado ? (
                                                     <p className="text-white/65 text-sm max-w-sm">
                                                         El periodo aún no ha sido iniciado por el administrador. Cuando
                                                         inicie, podrás ver tu QR de inscripción si estás en el cohorte.
                                                     </p>
-                                                ) : evento.preregistrado ? (
+                                                ) : selectedEvento.preregistrado ? (
                                                     <>
                                                         <p className="text-amber-300/80 text-sm font-medium mb-1">
                                                             Pre-registro completado
@@ -975,11 +1038,15 @@ export default function Dashboard() {
                                                 )}
                                             </div>
                                         ) : (
-                                            <EventCard evento={evento} onEnrollmentDetected={refreshEnrollmentStatus} />
+                                            <EventCard
+                                                evento={selectedEvento}
+                                                onEnrollmentDetected={refreshEnrollmentStatus}
+                                                onProfileSaved={refreshStudentInfo}
+                                            />
                                         )}
                                     </motion.div>
                                 );
-                            })
+                            </>
                         )}
                     </div>
                 </motion.main>

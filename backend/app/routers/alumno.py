@@ -37,6 +37,19 @@ class PerfilAlumnoUpdate(BaseModel):
             raise ValueError("El celular debe tener 10 dígitos y empezar con 55")
         return v
 
+    @field_validator("carrera")
+    @classmethod
+    def validar_carrera(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip().upper()
+        if v == "":
+            return None
+        import re as _re
+        if not _re.fullmatch(r"[A-Z]{2,10}", v):
+            raise ValueError("La carrera debe capturarse con siglas (ej. ITC)")
+        return v
+
     @field_validator("correo_alterno")
     @classmethod
     def validar_correo_alterno(cls, v: str | None) -> str | None:

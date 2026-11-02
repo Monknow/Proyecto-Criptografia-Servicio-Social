@@ -1,16 +1,19 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Calendar, Mail, Phone, FileText, ArrowLeft, Loader2, ChevronDown } from "lucide-react";
+import { Calendar, Mail, Phone, FileText, ArrowLeft, Loader2, ChevronDown, GraduationCap, BookOpen } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 
 // ─── Opciones estáticas ────────────────────────────────────────────
+const SEMESTRES = Array.from({ length: 12 }, (_, i) => i + 1);
 
 // ─── Componente ────────────────────────────────────────────────────
 export function StudentProfileForm({ initialData, onSubmit, onCancel }) {
   const [eventos, setEventos] = useState([]);
   const [cargandoEventos, setCargandoEventos] = useState(true);
   const [formData, setFormData] = useState({
+  carrera: initialData?.carrera || "",
+  semestre: initialData?.semestre ? String(initialData.semestre) : "",
   eventos_seleccionados: initialData?.eventos_seleccionados || [],
   correo_alterno: initialData?.correo_alterno || "",
   celular: initialData?.celular || "",
@@ -54,6 +57,14 @@ export function StudentProfileForm({ initialData, onSubmit, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!/^[A-Z]{2,10}$/.test(formData.carrera.trim())) {
+      setError("Escribe las siglas de tu carrera (ej: IMD).");
+      return;
+    }
+    if (!formData.semestre) {
+      setError("Selecciona tu semestre.");
+      return;
+    }
     if (formData.eventos_seleccionados.length === 0) {
       setError("Selecciona al menos un periodo de servicio social.");
       return;
@@ -95,23 +106,26 @@ export function StudentProfileForm({ initialData, onSubmit, onCancel }) {
         throw new Error(d.detail || "Error al guardar perfil académico.");
       }
 
-      // 2. Guardar datos de contacto (si alguno fue llenado)
-      const contactPayload = {};
+      // 2. Guardar datos académicos y de contacto
+      const contactPayload = {
+        carrera:  formData.carrera,
+        semestre: parseInt(formData.semestre, 10),
+      };
       if (formData.correo_alterno)       contactPayload.correo_alterno       = formData.correo_alterno;
       if (formData.celular)              contactPayload.celular              = formData.celular;
       if (formData.descripcion_personal) contactPayload.descripcion_personal = formData.descripcion_personal;
 
-      if (Object.keys(contactPayload).length > 0) {
-        const contactRes = await fetch(apiUrl("/api/v1/alumno/perfil"), {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(contactPayload),
-          credentials: "include",
-        });
-        if (!contactRes.ok) {
-          const d = await contactRes.json();
-          throw new Error(d.detail || "Error al guardar datos de contacto.");
-        }
+      const contactRes = await fetch(apiUrl("/api/v1/alumno/perfil"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(contactPayload),
+        credentials: "include",
+      });
+      if (!contactRes.ok) {
+        const d = await contactRes.json();
+        throw new Error(
+          typeof d.detail === "string" ? d.detail : "Error al guardar datos del perfil."
+        );
       }
 
       onSubmit();
@@ -177,7 +191,50 @@ export function StudentProfileForm({ initialData, onSubmit, onCancel }) {
 
           <form onSubmit={handleSubmit} className="space-y-5">
 
-            
+            {/* Datos académicos */}
+            <p className="text-[10px] text-white/30 uppercase tracking-[0.2em] mb-1">
+              Información académica
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {/* Carrera */}
+              <div className="space-y-2">
+                <label className={labelCls}><GraduationCap className="w-3 h-3 text-blue-400/70" />Carrera (ej: IMD) *</label>
+                <input
+                  type="text"
+                  required
+                  maxLength={10}
+                  pattern="^[A-Za-z]{2,10}$"
+                  title="Siglas de tu carrera, ej: IMD"
+                  placeholder="IMD"
+                  value={formData.carrera}
+                  onChange={e => field("carrera", e.target.value.replace(/[^A-Za-z]/g, "").toUpperCase())}
+                  className={inputCls}
+                />
+              </div>
+
+              {/* Semestre */}
+              <div className="space-y-2">
+                <label className={labelCls}><BookOpen className="w-3 h-3 text-blue-400/70" />Semestre *</label>
+                <div className="relative">
+                  <select
+                    required
+                    value={formData.semestre}
+                    onChange={e => field("semestre", e.target.value)}
+                    className={`${selectCls} pr-10 cursor-pointer`}
+                  >
+                    <option value="" className="bg-zinc-900 text-white/60">Selecciona tu semestre</option>
+                    {SEMESTRES.map((s) => (
+                      <option key={s} value={String(s)} className="bg-zinc-900 text-white">
+                        Semestre {s}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-white/40 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
             {/* Periodos */}
             <p className="text-[10px] text-white/30 uppercase tracking-[0.2em] mb-1">
               Inscripción a los periodos
