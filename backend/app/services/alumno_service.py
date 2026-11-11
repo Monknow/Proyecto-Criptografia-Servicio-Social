@@ -202,15 +202,14 @@ async def generar_qr_payload(
             "perfil_incompleto": False,
             "estado": "no_iniciado",
         }
-    if not ue.es_participante:
+    if not ue.preregistrado and not ue.es_participante:
         # Diferenciar según si llegó antes o después del cierre del pre-registro
-        estado_banner = "preregistro_exitoso" if ue.preregistrado else "preregistro_cerrado"
         return {
             "qr_data": None,
             "expira_en_segundos": 0,
             "ya_inscrito": False,
             "perfil_incompleto": False,
-            "estado": estado_banner,
+            "estado": "preregistro_cerrado",
         }
 
     # 3. Verificar si ya está inscrito

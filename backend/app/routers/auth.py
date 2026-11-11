@@ -18,6 +18,7 @@ from app.schemas.auth import (
 from app.schemas.usuario import RegistroRequest, RegistroResponse, EventoDisponibleResponse
 from app.services.auth_service import (
     LoginError,
+    _ensure_alumno_eventos,
     login_alumno,
     logout_alumno,
     refresh_session,
@@ -150,28 +151,28 @@ async def api_complete_profile(
     if datos.semestre is not None:
         user.semestre = datos.semestre
 
-    result = await db.execute(
-        select(Evento).where(Evento.id_evento.in_(datos.eventos_seleccionados), Evento.activo.is_(True)).order_by(Evento.id_evento.desc())
-    )
-    eventos = result.scalars().all()
+    # result = await db.execute(
+    #     select(Evento).where(Evento.id_evento.in_(datos.eventos_seleccionados), Evento.activo.is_(True)).order_by(Evento.id_evento.desc())
+    # )
+    # eventos = result.scalars().all()
 
-    ids_encontrados = {evento.id_evento for evento in eventos}
-    ids_solicitados = set(datos.eventos_seleccionados)
+    # ids_encontrados = {evento.id_evento for evento in eventos}
+    # ids_solicitados = set(datos.eventos_seleccionados)
 
-    if ids_encontrados != ids_solicitados:
-        raise HTTPException(status_code=400, detail="Uno o más eventos seleccionados no existen o no están activos.")
+    # if ids_encontrados != ids_solicitados:
+    #     raise HTTPException(status_code=400, detail="Uno o más eventos seleccionados no existen o no están activos.")
 
-    for evento in eventos:
-        check = await db.execute(select(UsuarioEvento).where(
-            UsuarioEvento.id_matricula == user.id_matricula,
-            UsuarioEvento.id_evento == evento.id_evento
-        ))
-        usuario_evento = check.scalar_one_or_none()
-        if usuario_evento is None:
-            db.add(UsuarioEvento(id_matricula=user.id_matricula, id_evento=evento.id_evento, es_participante=False, preregistrado=True)) 
-        else:
-            usuario_evento.preregistrado = True
-
+    # for evento in eventos:
+    #     check = await db.execute(select(UsuarioEvento).where(
+    #         UsuarioEvento.id_matricula == user.id_matricula,
+    #         UsuarioEvento.id_evento == evento.id_evento
+    #     ))
+    #     usuario_evento = check.scalar_one_or_none()
+    #     if usuario_evento is None:
+    #         db.add(UsuarioEvento(id_matricula=user.id_matricula, id_evento=evento.id_evento, es_participante=False, preregistrado=True)) 
+    #     else:
+    #         usuario_evento.preregistrado = True
+    await _ensure_alumno_eventos(db, user, user.rol)  # Asegura que el alumno tenga eventos asignados según su rol
     await db.commit()
     return {"message": "Perfil actualizado exitosamente"}
 
@@ -351,7 +352,7 @@ async def api_registro(
 
     # Validar que los eventos seleccionados existan
     eventos_res = await db.execute(
-        select(Evento).where(Evento.id_evento.in_(datos.eventos_seleccionados))
+        select(Evento).where(Evento.activo.is_(True))
     )
     eventos = eventos_res.scalars().all()
     if not eventos:
@@ -372,7 +373,7 @@ async def api_registro(
     await db.flush()
 
     for evento in eventos:
-        db.add(UsuarioEvento(id_matricula=matricula, id_evento=evento.id_evento))
+        db.add(UsuarioEvento(id_matricula=matricula, id_evento=evento.id_evento, preregistrado=True, es_participante=False))
 
     await db.commit()
 

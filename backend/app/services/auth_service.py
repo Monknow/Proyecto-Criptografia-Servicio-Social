@@ -267,7 +267,7 @@ async def login_alumno(
 
     # En modo pruebas, si se fuerza rol alumno para un correo puntual,
     # se asignan eventos activos para habilitar el flujo completo del dashboard.
-    await _ensure_test_alumno_eventos(db, usuario, effective_role)
+    await _ensure_alumno_eventos(db, usuario, effective_role)
 
     await db.commit()
     return access_token, raw_refresh
@@ -738,92 +738,137 @@ async def verify_totp_and_get_token(
         db, "TOTP_EXITOSO", id_matricula=usuario.id_matricula, ip_origen=ip_origen
     )
 
-    # En modo pruebas, habilita eventos para el alumno forzado sin requerir padrón/registro.
-    await _ensure_test_alumno_eventos(db, usuario, effective_role)
-    # Si el alumno está en el padrón y no tiene evento, asignar el activo automáticamente.
-    await _ensure_padron_alumno_eventos(db, usuario, effective_role)
-
+    # # En modo pruebas, habilita eventos para el alumno forzado sin requerir padrón/registro.
+    # await _ensure_test_alumno_eventos(db, usuario, effective_role)
+    # # Si el alumno está en el padrón y no tiene evento, asignar el activo automáticamente.
+    # await _ensure_padron_alumno_eventos(db, usuario, effective_role)
+    await _ensure_alumno_eventos(db, usuario, effective_role)
     await db.commit()
 
     return access_token, raw_refresh, effective_role, redirect_url, needs_profile
 
 
-async def _ensure_test_alumno_eventos(
-    db: AsyncSession, usuario: Usuario, effective_role: str
+# async def _ensure_test_alumno_eventos(
+#     db: AsyncSession, usuario: Usuario, effective_role: str
+# ) -> None:
+#     """Asigna eventos activos al alumno de pruebas si aún no tiene asignaciones."""
+#     if effective_role != "alumno" or not settings.TEST_ROLE_SWITCH_ENABLED:
+#         return
+
+#     target_email = settings.TEST_ROLE_SWITCH_EMAIL.strip().lower()
+#     if not target_email or (usuario.correo or "").strip().lower() != target_email:
+#         return
+
+#     result = await db.execute(
+#         select(UsuarioEvento.id)
+#         .where(UsuarioEvento.id_matricula == usuario.id_matricula)
+#         .limit(1)
+#     )
+#     if result.scalar_one_or_none() is not None:
+#         return
+
+#     result = await db.execute(
+#         select(Evento)
+#         .where(Evento.activo.is_(True))
+#         .order_by(Evento.id_evento)
+#         .limit(2)
+#     )
+#     eventos_activos = list(result.scalars().all())
+
+#     for evento in eventos_activos:
+#         db.add(
+#             UsuarioEvento(
+#                 id_matricula=usuario.id_matricula,
+#                 id_evento=evento.id_evento,
+#                 preregistrado=evento.preregistro_abierto,
+#             )
+#         )
+
+
+# async def _ensure_padron_alumno_eventos(
+#     db: AsyncSession, usuario: Usuario, effective_role: str
+# ) -> None:
+#     """Asigna el evento activo al alumno del padrón si aún no tiene ninguna asignación."""
+#     if effective_role != "alumno":
+#         return
+
+#     result = await db.execute(
+#         select(Evento.periodo)
+#         .join(UsuarioEvento, UsuarioEvento.id_evento == Evento.id_evento)
+#         .where(UsuarioEvento.id_matricula == usuario.id_matricula)
+#     )
+#     periodos_usuario = set(result.scalars().all())
+
+#     en_padron = await db.execute(
+#         select(PadronAlumno.id_matricula).where(
+#             PadronAlumno.id_matricula == usuario.id_matricula
+#         )
+#     )
+#     if not en_padron.scalar_one_or_none():
+#         return
+
+#     result = await db.execute(
+#         select(Evento)
+#         .where(Evento.activo.is_(True))
+#         .order_by(Evento.anio, Evento.id_evento)
+#     )
+#     evento_activos = result.scalars().all()
+
+#     for evento in evento_activos:
+#         if evento.periodo in periodos_usuario:
+#             continue
+#         db.add(
+#             UsuarioEvento(
+#                 id_matricula=usuario.id_matricula,
+#                 id_evento=evento.id_evento,
+#                 preregistrado=evento.preregistro_abierto,
+#             )
+#         ) 
+
+async def _ensure_alumno_eventos(
+    db: AsyncSession,
+    usuario: Usuario,
+    effective_role: str,
 ) -> None:
-    """Asigna eventos activos al alumno de pruebas si aún no tiene asignaciones."""
-    if effective_role != "alumno" or not settings.TEST_ROLE_SWITCH_ENABLED:
-        return
 
-    target_email = settings.TEST_ROLE_SWITCH_EMAIL.strip().lower()
-    if not target_email or (usuario.correo or "").strip().lower() != target_email:
-        return
-
-    result = await db.execute(
-        select(UsuarioEvento.id)
-        .where(UsuarioEvento.id_matricula == usuario.id_matricula)
-        .limit(1)
-    )
-    if result.scalar_one_or_none() is not None:
-        return
-
-    result = await db.execute(
-        select(Evento)
-        .where(Evento.activo.is_(True))
-        .order_by(Evento.id_evento)
-        .limit(2)
-    )
-    eventos_activos = list(result.scalars().all())
-
-    for evento in eventos_activos:
-        db.add(
-            UsuarioEvento(
-                id_matricula=usuario.id_matricula,
-                id_evento=evento.id_evento,
-                preregistrado=evento.preregistro_abierto,
-            )
-        )
-
-
-async def _ensure_padron_alumno_eventos(
-    db: AsyncSession, usuario: Usuario, effective_role: str
-) -> None:
-    """Asigna el evento activo al alumno del padrón si aún no tiene ninguna asignación."""
     if effective_role != "alumno":
         return
 
-    result = await db.execute(
-        select(Evento.periodo)
-        .join(UsuarioEvento, UsuarioEvento.id_evento == Evento.id_evento)
-        .where(UsuarioEvento.id_matricula == usuario.id_matricula)
+    # Obtener todos los eventos activos
+    result_eventos = await db.execute(
+        select(Evento).where(Evento.activo.is_(True))
     )
-    periodos_usuario = set(result.scalars().all())
+    eventos_activos = result_eventos.scalars().all()
 
-    en_padron = await db.execute(
-        select(PadronAlumno.id_matricula).where(
-            PadronAlumno.id_matricula == usuario.id_matricula
+    # Obtener los objetos UsuarioEvento completos
+    result_relaciones = await db.execute(
+        select(UsuarioEvento).where(
+            UsuarioEvento.id_matricula == usuario.id_matricula
         )
     )
-    if not en_padron.scalar_one_or_none():
-        return
+    relaciones_existentes = result_relaciones.scalars().all()
 
-    result = await db.execute(
-        select(Evento)
-        .where(Evento.activo.is_(True))
-        .order_by(Evento.anio, Evento.id_evento)
-    )
-    evento_activos = result.scalars().all()
+    # Crear diccionario: id_evento -> objeto UsuarioEvento
+    relaciones = {
+        relacion.id_evento: relacion
+        for relacion in relaciones_existentes
+    }
 
-    for evento in evento_activos:
-        if evento.periodo in periodos_usuario:
-            continue
-        db.add(
-            UsuarioEvento(
-                id_matricula=usuario.id_matricula,
-                id_evento=evento.id_evento,
-                preregistrado=evento.preregistro_abierto,
+    # Asegurar preregistro en todos los eventos activos
+    for evento in eventos_activos:
+        usuario_evento = relaciones.get(evento.id_evento)
+
+        if usuario_evento is None:
+            db.add(
+                UsuarioEvento(
+                    id_matricula=usuario.id_matricula,
+                    id_evento=evento.id_evento,
+                    es_participante=False,
+                    preregistrado=True,
+                )
             )
-        )
+        else:
+            usuario_evento.preregistrado = True
 
 
 # ── Utilidades TOTP ──────────────────────────────────────────────────────────

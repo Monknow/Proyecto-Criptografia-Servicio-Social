@@ -707,7 +707,7 @@ export default function Dashboard() {
             eventos[0]
         );
     }, [data?.eventos, selectedEventoId]);
-    const selectedAccesoBloqueado = selectedEvento && (!selectedEvento.iniciado || !selectedEvento.es_participante);
+    const selectedAccesoBloqueado = selectedEvento && (!selectedEvento.iniciado || (!selectedEvento.es_participante && !selectedEvento.preregistrado));
 
     const refreshEnrollmentStatus = useCallback(async () => {
         try {
