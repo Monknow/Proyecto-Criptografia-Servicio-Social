@@ -298,7 +298,7 @@ export default function AdminDashboard() {
     const [expandedProyectos, setExpandedProyectos] = useState([]);
 
     // Modals Info
-    const [_isCrearProyectoOpen, setIsCrearProyectoOpen] = useState(false);
+    const [isCrearProyectoOpen, setIsCrearProyectoOpen] = useState(false);
     const [isCrearSocioformadorOpen, setIsCrearSocioformadorOpen] = useState(false);
     const [isCrearEventoOpen, setIsCrearEventoOpen] = useState(false);
     const [cupoModalInfo, setCupoModalInfo] = useState(null);
@@ -326,6 +326,14 @@ export default function AdminDashboard() {
     const [formSocioformador, setFormSocioformador] = useState({
         nombre: "",
     });
+    const EMPTY_FORM_PROYECTO = {
+        id_socioformador: "",
+        id_evento: "",
+        nombre_proyecto: "",
+        descripcion: "",
+        capacidad_max: "",
+    };
+    const [formProyecto, setFormProyecto] = useState(EMPTY_FORM_PROYECTO);
     const [formEvento, setFormEvento] = useState({
         nombre: "",
         periodo: "FEBRERO-JUNIO",
@@ -483,6 +491,44 @@ export default function AdminDashboard() {
             await fetchData();
         } catch (err) {
             setErrorText(err.message || "No se pudo agregar el alumno");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleCrearProyecto = async (e) => {
+        e.preventDefault();
+        if (!formProyecto.id_socioformador || !formProyecto.id_evento) {
+            setErrorText("Selecciona un socioformador y un evento");
+            return;
+        }
+        setIsSubmitting(true);
+        setErrorText("");
+        try {
+            const res = await fetch(apiUrl("/api/v1/admin/proyectos"), {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                credentials: "include",
+                body: JSON.stringify({
+                    id_socioformador: Number(formProyecto.id_socioformador),
+                    id_evento: Number(formProyecto.id_evento),
+                    nombre_proyecto: formProyecto.nombre_proyecto.trim(),
+                    descripcion: formProyecto.descripcion.trim() || null,
+                    capacidad_max: Number(formProyecto.capacidad_max),
+                }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const detail = Array.isArray(data.detail)
+                    ? data.detail.map((d) => d.msg).join(", ")
+                    : data.detail;
+                throw new Error(detail || "No se pudo crear el proyecto");
+            }
+            setIsCrearProyectoOpen(false);
+            setFormProyecto(EMPTY_FORM_PROYECTO);
+            await fetchData();
+        } catch (err) {
+            setErrorText(err.message || "No se pudo crear el proyecto");
         } finally {
             setIsSubmitting(false);
         }
@@ -2593,6 +2639,120 @@ export default function AdminDashboard() {
                             </div>
                         ))}
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal Registrar Proyecto */}
+            <Dialog
+                open={isCrearProyectoOpen}
+                onOpenChange={(open) => {
+                    setIsCrearProyectoOpen(open);
+                    if (!open) {
+                        setFormProyecto(EMPTY_FORM_PROYECTO);
+                        setErrorText("");
+                    }
+                }}>
+                <DialogContent className="sm:max-w-lg bg-slate-950/95 border border-white/15 text-white backdrop-blur-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-normal tracking-tight text-white">
+                            Registrar Proyecto
+                        </DialogTitle>
+                        <DialogDescription className="text-white/80">
+                            Agrega un proyecto a un socioformador dentro de un evento
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleCrearProyecto} className="space-y-4 mt-2">
+                        {errorText && (
+                            <p className="text-red-200 text-sm rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                                {errorText}
+                            </p>
+                        )}
+
+                        <div className="space-y-1">
+                            <Label className="text-white/70 text-[11px] font-normal uppercase tracking-wider">
+                                Socioformador
+                            </Label>
+                            <Select
+                                value={formProyecto.id_socioformador}
+                                onValueChange={(v) => setFormProyecto({...formProyecto, id_socioformador: v})}>
+                                <SelectTrigger className="bg-white/10 border-white/15 text-white">
+                                    <SelectValue placeholder="Selecciona un socioformador" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {socioformadores.map((s) => (
+                                        <SelectItem key={s.id_socioformador} value={String(s.id_socioformador)}>
+                                            {s.nombre_socioformador}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-white/70 text-[11px] font-normal uppercase tracking-wider">
+                                Evento
+                            </Label>
+                            <Select
+                                value={formProyecto.id_evento}
+                                onValueChange={(v) => setFormProyecto({...formProyecto, id_evento: v})}>
+                                <SelectTrigger className="bg-white/10 border-white/15 text-white">
+                                    <SelectValue placeholder="Selecciona un evento" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {eventos.map((ev) => (
+                                        <SelectItem key={ev.id_evento} value={String(ev.id_evento)}>
+                                            {ev.nombre} ({ev.periodo} {ev.anio})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-white/70 text-[11px] font-normal uppercase tracking-wider">
+                                Nombre del proyecto
+                            </Label>
+                            <Input
+                                required
+                                className="bg-white/10 border-white/15 text-white placeholder:text-white/45"
+                                value={formProyecto.nombre_proyecto}
+                                onChange={(e) => setFormProyecto({...formProyecto, nombre_proyecto: e.target.value})}
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-white/70 text-[11px] font-normal uppercase tracking-wider">
+                                Descripción (opcional)
+                            </Label>
+                            <Input
+                                className="bg-white/10 border-white/15 text-white placeholder:text-white/45"
+                                value={formProyecto.descripcion}
+                                onChange={(e) => setFormProyecto({...formProyecto, descripcion: e.target.value})}
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-white/70 text-[11px] font-normal uppercase tracking-wider">
+                                Cupo máximo
+                            </Label>
+                            <Input
+                                required
+                                type="number"
+                                min={1}
+                                className="bg-white/10 border-white/15 text-white placeholder:text-white/45"
+                                value={formProyecto.capacidad_max}
+                                onChange={(e) => setFormProyecto({...formProyecto, capacidad_max: e.target.value})}
+                            />
+                        </div>
+
+                        <Button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="w-full border border-white/10 bg-white/5 hover:bg-white/10 text-white/80 font-normal mt-2">
+                            Crear Proyecto
+                        </Button>
+                    </form>
                 </DialogContent>
             </Dialog>
 
