@@ -2675,8 +2675,12 @@ export default function AdminDashboard() {
                             </Label>
                             <Select
                                 value={formProyecto.id_socioformador}
+                                items={socioformadores.map((s) => ({
+                                    value: String(s.id_socioformador),
+                                    label: s.nombre_socioformador,
+                                }))}
                                 onValueChange={(v) => setFormProyecto({...formProyecto, id_socioformador: v})}>
-                                <SelectTrigger className="bg-white/10 border-white/15 text-white">
+                                <SelectTrigger className="w-full bg-white/10 border-white/15 text-white">
                                     <SelectValue placeholder="Selecciona un socioformador" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -2695,8 +2699,12 @@ export default function AdminDashboard() {
                             </Label>
                             <Select
                                 value={formProyecto.id_evento}
+                                items={eventos.map((ev) => ({
+                                    value: String(ev.id_evento),
+                                    label: `${ev.nombre} (${ev.periodo} ${ev.anio})`,
+                                }))}
                                 onValueChange={(v) => setFormProyecto({...formProyecto, id_evento: v})}>
-                                <SelectTrigger className="bg-white/10 border-white/15 text-white">
+                                <SelectTrigger className="w-full bg-white/10 border-white/15 text-white">
                                     <SelectValue placeholder="Selecciona un evento" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -2820,8 +2828,15 @@ Femsa,,Proyecto B,Otra desc,30`}
                             <Label className="text-white text-[11px] font-normal uppercase tracking-wider">
                                 Evento
                             </Label>
-                            <Select value={csvEventoId} onValueChange={setCsvEventoId} required>
-                                <SelectTrigger className="bg-white/10 border-white/15 text-white">
+                            <Select
+                                value={csvEventoId}
+                                items={eventos.map((ev) => ({
+                                    value: String(ev.id_evento),
+                                    label: `${ev.nombre} (${ev.periodo} ${ev.anio})`,
+                                }))}
+                                onValueChange={setCsvEventoId}
+                                required>
+                                <SelectTrigger className="w-full bg-white/10 border-white/15 text-white">
                                     <SelectValue placeholder="Selecciona un evento" />
                                 </SelectTrigger>
                                 <SelectContent>
