@@ -100,6 +100,33 @@ async def listar_socioformadores(db: AsyncSession) -> list[dict]:
     ]
 
 
+async def crear_socioformador(
+    db: AsyncSession, nombre_socioformador: str, logo_url: str | None = None
+) -> dict:
+    """Crea un socioformador nuevo (rechaza nombres duplicados)."""
+    from fastapi import HTTPException
+
+    nombre = nombre_socioformador.strip()
+    if not nombre:
+        raise HTTPException(status_code=422, detail="El nombre es obligatorio")
+
+    dup = await db.execute(
+        select(Socioformador).where(Socioformador.nombre_socioformador == nombre)
+    )
+    if dup.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Ya existe un socioformador con ese nombre")
+
+    socioformador = Socioformador(nombre_socioformador=nombre, logo_url=logo_url)
+    db.add(socioformador)
+    await db.commit()
+    await db.refresh(socioformador)
+    return {
+        "id_socioformador": socioformador.id_socioformador,
+        "nombre_socioformador": socioformador.nombre_socioformador,
+        "logo_url": socioformador.logo_url,
+    }
+
+
 async def listar_eventos(db: AsyncSession) -> list[dict]:
     """Devuelve todos los eventos."""
     from app.models.usuario_evento import UsuarioEvento

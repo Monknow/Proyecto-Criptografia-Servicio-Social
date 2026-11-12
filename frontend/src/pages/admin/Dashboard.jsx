@@ -324,11 +324,7 @@ export default function AdminDashboard() {
 
     // Forms
     const [formSocioformador, setFormSocioformador] = useState({
-        id_asociado: "",
         nombre: "",
-        razon: "",
-        desc: "",
-        calle: "",
     });
     const [formEvento, setFormEvento] = useState({
         nombre: "",
@@ -502,18 +498,14 @@ export default function AdminDashboard() {
                 headers: {"Content-Type": "application/json"},
                 credentials: "include",
                 body: JSON.stringify({
-                    id_asociado: formSocioformador.id_asociado,
                     nombre_socioformador: formSocioformador.nombre,
-                    razon_social: formSocioformador.razon,
-                    descripcion: formSocioformador.desc || null,
-                    calle: formSocioformador.calle || null,
                 }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail);
             setIsCrearSocioformadorOpen(false);
             fetchData();
-            setFormSocioformador({id_asociado: "", nombre: "", razon: "", desc: "", calle: ""});
+            setFormSocioformador({nombre: ""});
         } catch (err) {
             setErrorText(err.message);
         } finally {
@@ -1921,23 +1913,6 @@ export default function AdminDashboard() {
                                                     )}
                                                     <div className="space-y-1">
                                                         <Label className="text-white/70 text-[11px] font-normal uppercase tracking-wider">
-                                                            ID Asociado / Convenio
-                                                        </Label>
-                                                        <Input
-                                                            required
-                                                            className="bg-white/10 border-white/15 text-white placeholder:text-white/45"
-                                                            value={formSocioformador.id_asociado}
-                                                            onChange={(e) =>
-                                                                setFormSocioformador({
-                                                                    ...formSocioformador,
-                                                                    id_asociado: e.target.value,
-                                                                })
-                                                            }
-                                                            placeholder="Ej. SF-XXX24"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <Label className="text-white/70 text-[11px] font-normal uppercase tracking-wider">
                                                             Nombre Público (Comercial)
                                                         </Label>
                                                         <Input
@@ -1948,37 +1923,6 @@ export default function AdminDashboard() {
                                                                 setFormSocioformador({
                                                                     ...formSocioformador,
                                                                     nombre: e.target.value,
-                                                                })
-                                                            }
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <Label className="text-white/70 text-[11px] font-normal uppercase tracking-wider">
-                                                            Denominación Legal (Razón Social)
-                                                        </Label>
-                                                        <Input
-                                                            required
-                                                            className="bg-white/10 border-white/15 text-white placeholder:text-white/45"
-                                                            value={formSocioformador.razon}
-                                                            onChange={(e) =>
-                                                                setFormSocioformador({
-                                                                    ...formSocioformador,
-                                                                    razon: e.target.value,
-                                                                })
-                                                            }
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <Label className="text-white/70 text-[11px] font-normal uppercase tracking-wider">
-                                                            Descripción de Giro Corporativo
-                                                        </Label>
-                                                        <Input
-                                                            className="bg-white/10 border-white/15 text-white placeholder:text-white/45"
-                                                            value={formSocioformador.desc}
-                                                            onChange={(e) =>
-                                                                setFormSocioformador({
-                                                                    ...formSocioformador,
-                                                                    desc: e.target.value,
                                                                 })
                                                             }
                                                         />

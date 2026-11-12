@@ -47,6 +47,11 @@ class ProyectoCreate(BaseModel):
     capacidad_max: int
 
 
+class SocioformadorCreate(BaseModel):
+    nombre_socioformador: str
+    logo_url: str | None = None
+
+
 class CapacidadUpdate(BaseModel):
     nueva_capacidad_max: int
 
@@ -172,6 +177,22 @@ async def api_listar_socioformadores(
     _=Depends(get_current_admin),
 ):
     return await admin_service.listar_socioformadores(db)
+
+
+@router.post(
+    "/api/v1/admin/socioformadores",
+    status_code=status.HTTP_201_CREATED,
+    tags=["Admin"],
+)
+async def api_crear_socioformador(
+    datos: SocioformadorCreate,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    """Crea un nuevo socioformador."""
+    return await admin_service.crear_socioformador(
+        db, datos.nombre_socioformador, datos.logo_url
+    )
 
 
 @router.get("/api/v1/admin/eventos", tags=["Admin"])
