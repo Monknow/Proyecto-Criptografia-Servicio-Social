@@ -16,7 +16,7 @@ class PreAuthToken(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     id_matricula: Mapped[str] = mapped_column(
-        String(20), ForeignKey("usuarios.id_matricula", ondelete="CASCADE"), nullable=False
+        String(20), ForeignKey("usuarios.id_matricula", ondelete="CASCADE", onupdate="CASCADE"), nullable=False
     )
     expira_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     usado: Mapped[bool] = mapped_column(default=False, nullable=False)

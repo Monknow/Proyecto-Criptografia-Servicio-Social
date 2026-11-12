@@ -15,7 +15,7 @@ class UsuarioEvento(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id_matricula: Mapped[str] = mapped_column(
-        String(20), ForeignKey("usuarios.id_matricula", ondelete="CASCADE"), nullable=False
+        String(20), ForeignKey("usuarios.id_matricula", ondelete="CASCADE", onupdate="CASCADE"), nullable=False
     )
     id_evento: Mapped[int] = mapped_column(
         Integer, ForeignKey("eventos.id_evento", ondelete="CASCADE"), nullable=False

@@ -16,7 +16,7 @@ class RefreshToken(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     token_hash: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     id_matricula: Mapped[str] = mapped_column(
-        String(20), ForeignKey("usuarios.id_matricula", ondelete="CASCADE"), nullable=False
+        String(20), ForeignKey("usuarios.id_matricula", ondelete="CASCADE", onupdate="CASCADE"), nullable=False
     )
     expira_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revocado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

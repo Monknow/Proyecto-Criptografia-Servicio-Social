@@ -23,7 +23,7 @@ class Inscripcion(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     id_matricula: Mapped[str] = mapped_column(
-        String(20), ForeignKey("usuarios.id_matricula", ondelete="RESTRICT"), nullable=False
+        String(20), ForeignKey("usuarios.id_matricula", ondelete="RESTRICT", onupdate="CASCADE"), nullable=False
     )
     id_proyecto: Mapped[int] = mapped_column(
         Integer, ForeignKey("proyectos.id_proyecto", ondelete="RESTRICT"), nullable=False

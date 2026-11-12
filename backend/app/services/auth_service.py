@@ -34,6 +34,49 @@ PROFESOR_MATRICULAS: dict[str, str] = {
 }
 
 
+def matricula_desde_correo(correo: str) -> str | None:
+    """A01234567@tec.mx -> 'A01234567'. None si el correo no tiene ese formato."""
+    correo = correo.strip().lower()
+    if correo in PROFESOR_MATRICULAS:
+        return PROFESOR_MATRICULAS[correo]
+    match = re.fullmatch(r"(a0\d{7})@tec\.mx", correo)
+    return match.group(1).upper() if match else None
+
+
+async def _sincronizar_matricula(db: AsyncSession, usuario: Usuario) -> None:
+    """
+    Alumnos con Google login: la matrícula siempre es la del correo institucional.
+    Si el usuario tiene otra (p. ej. GGL-XXXXXXXX), se actualiza; las FK hijas
+    siguen el cambio vía ON UPDATE CASCADE. Si la matrícula ya la tiene otro
+    usuario, no se toca (se deja registro en la auditoría).
+    """
+    if usuario.rol != "alumno":
+        return
+    nueva = matricula_desde_correo(usuario.correo)
+    if not nueva or usuario.id_matricula == nueva:
+        return
+
+    ocupada = await db.execute(select(Usuario.id_matricula).where(Usuario.id_matricula == nueva))
+    if ocupada.scalar_one_or_none():
+        await _log(
+            db,
+            "MATRICULA_COLISION",
+            id_matricula=usuario.id_matricula,
+            detalle=f"{usuario.correo}: {nueva} ya pertenece a otro usuario",
+        )
+        return
+
+    anterior = usuario.id_matricula
+    usuario.id_matricula = nueva
+    await db.flush()
+    await _log(
+        db,
+        "MATRICULA_ACTUALIZADA",
+        id_matricula=nueva,
+        detalle=f"{anterior} -> {nueva}",
+    )
+
+
 # ── Errores de negocio ────────────────────────────────────────────────────────
 
 
@@ -454,7 +497,10 @@ async def login_or_register_google(
         await db.commit()
         return raw_temp, totp_qr, totp_secret
     else:
-        # Usuario existente - si no tiene TOTP, generarlo
+        # Usuario existente: alinear la matrícula con la del correo institucional
+        await _sincronizar_matricula(db, usuario)
+
+        # Si no tiene TOTP, generarlo
         totp_secret = None
         if not usuario.totp_secret or usuario.totp_secret == "":
             usuario.totp_secret = pyotp.random_base32()
@@ -556,15 +602,10 @@ async def verify_totp_and_get_token(
         padron_carrera = None
         padron_semestre = None
         padron_matricula = None
+        matricula_candidata: str | None = None
         if effective_role == "alumno":
             correo_lower = correo.lower()
-            matricula_candidata: str | None = None
-            if correo_lower in PROFESOR_MATRICULAS:
-                matricula_candidata = PROFESOR_MATRICULAS[correo_lower]
-            else:
-                match = re.match(r"^(a0\d{7})@tec\.mx$", correo_lower)
-                if match:
-                    matricula_candidata = match.group(1).upper()
+            matricula_candidata = matricula_desde_correo(correo_lower)
             if matricula_candidata:
                 try:
                     padron_result = await db.execute(
@@ -596,6 +637,16 @@ async def verify_totp_and_get_token(
                 padron_nombre = None
                 padron_carrera = None
                 padron_semestre = None
+
+        # Alumnos: la matrícula es siempre la del correo, aunque no estén en el padrón
+        if not padron_matricula and matricula_candidata:
+            ocupada = await db.execute(
+                select(Usuario.id_matricula).where(
+                    Usuario.id_matricula == matricula_candidata
+                )
+            )
+            if not ocupada.scalar_one_or_none():
+                padron_matricula = matricula_candidata
 
         if padron_matricula:
             id_matricula_final = padron_matricula
