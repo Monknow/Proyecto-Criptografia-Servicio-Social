@@ -84,6 +84,10 @@ fi
 log "Corriendo migraciones de Alembic"
 alembic upgrade head
 
+# ── Seed del usuario admin (idempotente; se omite sin ADMIN_EMAIL/ADMIN_PASSWORD)
+log "Sembrando usuario admin"
+gosu app python seed_admin.py || log "seed_admin falló (no fatal)"
+
 # ── App ──────────────────────────────────────────────────────────────────────
 log "Levantando gunicorn"
 exec gosu app gunicorn app.main:app \
