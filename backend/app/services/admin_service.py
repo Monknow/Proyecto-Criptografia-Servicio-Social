@@ -3,6 +3,9 @@ Servicio del módulo Admin — lógica de negocio para gestión de proyectos.
 """
 import secrets
 import uuid
+import pyotp
+import ssl
+import logging
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +23,7 @@ from app.models.log_auditoria import LogAuditoria
 from app.models.proyecto import Proyecto
 from app.models.usuario import Usuario
 from app.models.usuario_evento import UsuarioEvento
-
+from app.services.email_service import enviar_correo_credenciales_socioformador
 
 # ── Proyectos ─────────────────────────────────────────────────────────────────
 
@@ -698,6 +701,7 @@ async def reset_password_usuario(
 
 # ── Carga de CSV ──────────────────────────────────────────────────────────────
 
+
 async def procesar_csv_socioformadores_proyectos(
     db: AsyncSession,
     csv_content: str,
@@ -705,52 +709,110 @@ async def procesar_csv_socioformadores_proyectos(
 ) -> dict:
     """
     Procesa un CSV con socioformadores y proyectos.
-    Formato esperado: nombre_socioformador,logo_url,nombre_proyecto,descripcion_proyecto,capacidad_max
-
-    Crea socioformadores si no existen y siempre crea nuevos proyectos.
-    Retorna resumen de registros creados.
+    Crea una cuenta por socioformador nuevo y envía sus
+    credenciales por correo después de guardar los registros.
     """
+
     import csv
     import io
+    import re
     from fastapi import HTTPException
 
-    # Validar que el evento existe
+    # Validar evento
     evento = await db.get(Evento, id_evento)
+
     if not evento:
-        raise HTTPException(status_code=404, detail=f"Evento con id {id_evento} no encontrado")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Evento con id {id_evento} no encontrado"
+        )
 
-    # Parse CSV
-    reader = csv.DictReader(io.StringIO(csv_content))
-    expected_columns = {"nombre_socioformador", "logo_url", "nombre_proyecto", "descripcion_proyecto", "capacidad_max"}
+    # Leer CSV
+    reader = csv.DictReader(io.StringIO(csv_content.lstrip("\ufeff")))
 
-    if not reader.fieldnames or not set(reader.fieldnames).issuperset(expected_columns):
+    expected_columns = {
+        "nombre_socioformador",
+        "correo_socioformador",
+        "logo_url",
+        "nombre_proyecto",
+        "descripcion_proyecto",
+        "capacidad_max",
+    }
+
+    if not reader.fieldnames:
         raise HTTPException(
             status_code=400,
-            detail=f"CSV debe contener las columnas: {', '.join(expected_columns)}"
+            detail="El CSV está vacío o no tiene encabezados"
+        )
+
+    reader.fieldnames = [h.strip() for h in reader.fieldnames]
+
+    if not expected_columns.issubset(set(reader.fieldnames)):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "CSV debe contener las columnas: "
+                + ", ".join(sorted(expected_columns))
+            )
         )
 
     socioformadores_creadas = 0
     proyectos_creados = 0
+    cuentas_creadas = 0
     errores = []
 
-    # Cache de socioformadores para no repetir queries
+    # Correos pendientes: contienen la contraseña solo en memoria
+    correos_pendientes = []
+
+    # Evitar consultas repetidas
     socioformadores_cache = {}
+    cuentas_cache = {}
+    correos_por_socioformador = {}
 
-    for idx, row in enumerate(reader, start=2):  # start=2 porque la fila 1 son headers
-        try:
-            nombre_socioformador = (row.get("nombre_socioformador") or "").strip()
+    try:
+        for idx, row in enumerate(reader, start=2):
+
+            nombre_socioformador = (
+                row.get("nombre_socioformador") or ""
+            ).strip()
+
+            correo = (
+                row.get("correo_socioformador") or ""
+            ).strip().lower()
+
             logo_url = (row.get("logo_url") or "").strip() or None
-            nombre_proyecto = (row.get("nombre_proyecto") or "").strip()
-            descripcion = (row.get("descripcion_proyecto") or "").strip() or None
-            capacidad_str = (row.get("capacidad_max") or "").strip()
 
-            # Validaciones básicas
+            nombre_proyecto = (
+                row.get("nombre_proyecto") or ""
+            ).strip()
+
+            descripcion = (
+                row.get("descripcion_proyecto") or ""
+            ).strip() or None
+
+            capacidad_str = (
+                row.get("capacidad_max") or ""
+            ).strip()
+
+            # Validaciones
             if not nombre_socioformador:
-                errores.append(f"Fila {idx}: nombre_socioformador vacío")
+                errores.append(
+                    f"Fila {idx}: nombre_socioformador vacío"
+                )
+                continue
+
+            if not correo or not re.fullmatch(
+                r"[^@\s]+@[^@\s]+\.[^@\s]+", correo
+            ):
+                errores.append(
+                    f"Fila {idx}: correo_socioformador inválido"
+                )
                 continue
 
             if not nombre_proyecto:
-                errores.append(f"Fila {idx}: nombre_proyecto vacío")
+                errores.append(
+                    f"Fila {idx}: nombre_proyecto vacío"
+                )
                 continue
 
             try:
@@ -758,16 +820,35 @@ async def procesar_csv_socioformadores_proyectos(
                 if capacidad_max <= 0:
                     raise ValueError()
             except ValueError:
-                errores.append(f"Fila {idx}: capacidad_max debe ser un número positivo (recibido: {capacidad_str})")
+                errores.append(
+                    f"Fila {idx}: capacidad_max debe ser positivo"
+                )
                 continue
 
-            # Buscar o crear socioformador
-            if nombre_socioformador in socioformadores_cache:
-                socioformador = socioformadores_cache[nombre_socioformador]
-            else:
-                result = await db.execute(
-                    select(Socioformador).where(Socioformador.nombre_socioformador == nombre_socioformador)
+            socio_key = nombre_socioformador.casefold()
+
+            # Verificar consistencia del correo por socioformador
+            correo_anterior = correos_por_socioformador.get(socio_key)
+
+            if correo_anterior and correo_anterior != correo:
+                errores.append(
+                    f"Fila {idx}: correo inconsistente para "
+                    f"{nombre_socioformador}"
                 )
+                continue
+
+            correos_por_socioformador[socio_key] = correo
+
+            # Buscar o crear socioformador
+            if socio_key not in socioformadores_cache:
+
+                result = await db.execute(
+                    select(Socioformador).where(
+                        Socioformador.nombre_socioformador
+                        == nombre_socioformador
+                    )
+                )
+
                 socioformador = result.scalar_one_or_none()
 
                 if not socioformador:
@@ -775,38 +856,160 @@ async def procesar_csv_socioformadores_proyectos(
                         nombre_socioformador=nombre_socioformador,
                         logo_url=logo_url,
                     )
+
                     db.add(socioformador)
-                    await db.flush()  # Para obtener id_socioformador
+                    await db.flush()
+
                     socioformadores_creadas += 1
 
-                socioformadores_cache[nombre_socioformador] = socioformador
+                socioformadores_cache[socio_key] = socioformador
 
-            # Crear proyecto
+            socioformador = socioformadores_cache[socio_key]
+            id_socioformador = socioformador.id_socioformador
+
+            # Crear o reutilizar cuenta
+            if socio_key not in cuentas_cache:
+
+                result = await db.execute(
+                    select(Usuario).where(
+                        Usuario.id_socioformador == id_socioformador
+                    )
+                )
+
+                cuenta_socio = result.scalar_one_or_none()
+
+                result = await db.execute(
+                    select(Usuario).where(
+                        Usuario.correo == correo
+                    )
+                )
+
+                cuenta_correo = result.scalar_one_or_none()
+
+                if cuenta_socio:
+
+                    if (
+                        cuenta_socio.rol == "socioformador"
+                        and (cuenta_socio.correo or "").lower() == correo
+                    ):
+                        cuentas_cache[socio_key] = cuenta_socio
+
+                    else:
+                        errores.append(
+                            f"{nombre_socioformador} ya tiene una "
+                            "cuenta asociada con otro correo o rol"
+                        )
+                        cuentas_cache[socio_key] = None
+
+                elif cuenta_correo:
+                    errores.append(
+                        f"El correo {correo} ya pertenece a otra cuenta"
+                    )
+                    cuentas_cache[socio_key] = None
+
+                else:
+                    # Crear cuenta nueva
+                    nueva_password = secrets.token_urlsafe(12)
+                    id_matricula = (
+                        f"EMP-{uuid.uuid4().hex[:8].upper()}"
+                    )
+
+                    usuario = Usuario(
+                        id_matricula=id_matricula,
+                        nombre=nombre_socioformador,
+                        correo=correo,
+                        carrera="N/A",
+                        semestre=0,
+                        password_hash=hash_password(nueva_password),
+                        is_google_login=False,
+                        totp_secret=pyotp.random_base32(),
+                        rol="socioformador",
+                        id_socioformador=id_socioformador,
+                    )
+
+                    db.add(usuario)
+                    await db.flush()
+
+                    cuentas_cache[socio_key] = usuario
+                    cuentas_creadas += 1
+
+                    # Guardar temporalmente para enviar después del commit
+                    correos_pendientes.append({
+                        "nombre": nombre_socioformador,
+                        "correo": correo,
+                        "matricula": id_matricula,
+                        "password": nueva_password,
+                    })
+
+            # Crear proyecto incluso si existe un conflicto de cuenta
             proyecto = Proyecto(
-                id_socioformador=socioformador.id_socioformador,
+                id_socioformador=id_socioformador,
                 id_evento=id_evento,
                 nombre_proyecto=nombre_proyecto,
                 descripcion=descripcion,
                 capacidad_max=capacidad_max,
                 cupo_actual=0,
             )
+
             db.add(proyecto)
             proyectos_creados += 1
 
-        except Exception as e:
-            errores.append(f"Fila {idx}: Error inesperado - {str(e)}")
+        # Guardar todos los registros antes de enviar correos
+        await db.commit()
 
-    await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.exception("Error procesando CSV de socioformadores")
+        raise HTTPException(
+            status_code=500,
+            detail="Ocurrió un error al guardar el CSV. No se enviaron correos."
+        ) from e
 
-    # Limpiar cache
+    # Limpiar caché
     await cache_delete("kpis")
     await cache_delete("ocupacion_eventos")
     await cache_delete_prefix("admin_proyectos")
+
+    # Enviar correos después del commit
+    correos_enviados = 0
+    correos_fallidos = []
+
+    for credencial in correos_pendientes:
+        try:
+            enviado = enviar_correo_credenciales_socioformador(
+                to_email=credencial["correo"],
+                nombre_socioformador=credencial["nombre"],
+                matricula=credencial["matricula"],
+                password_temporal=credencial["password"],
+            )
+
+            if enviado:
+                correos_enviados += 1
+            else:
+                correos_fallidos.append({
+                    "nombre": credencial["nombre"],
+                    "correo": credencial["correo"],
+                })
+
+        except Exception:
+            logger.exception(
+                "Error enviando credenciales a %s",
+                credencial["correo"]
+            )
+
+            correos_fallidos.append({
+                "nombre": credencial["nombre"],
+                "correo": credencial["correo"],
+            })
 
     return {
         "ok": True,
         "socioformadores_creadas": socioformadores_creadas,
         "proyectos_creados": proyectos_creados,
+        "cuentas_creadas": cuentas_creadas,
+        "correos_enviados": correos_enviados,
+        "correos_fallidos": correos_fallidos,
+        "total_correos_fallidos": len(correos_fallidos),
         "errores": errores,
         "total_errores": len(errores),
     }

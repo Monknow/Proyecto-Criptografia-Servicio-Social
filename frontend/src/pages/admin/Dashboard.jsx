@@ -2818,10 +2818,11 @@ export default function AdminDashboard() {
                                 Formato esperado
                             </Label>
                             <pre className="bg-white/5 border border-white/10 rounded-lg p-3 text-[11px] font-mono text-white/70 overflow-x-auto whitespace-pre leading-relaxed">
-                                {`nombre_socioformador,logo_url,nombre_proyecto,descripcion_proyecto,capacidad_max
-Cemex,https://...,Proyecto A,Descripción,50
-Femsa,,Proyecto B,Otra desc,30`}
-                            </pre>
+    {`nombre_socioformador,correo_electronico,logo_url,nombre_proyecto,descripcion_proyecto,capacidad_max
+Cemex,contacto@cemex.com,https://...,Proyecto A,Descripción,50
+Cemex,contacto@cemex.com,https://...,Proyecto B,Otra descripción,30
+Femsa,proyectos@femsa.com,,Proyecto C,Otra desc,40`}
+</pre>
                         </div>
 
                         <div className="space-y-2">

@@ -4,6 +4,7 @@ Servicio del módulo de Correos — envío de notificaciones por SMTP.
 import html
 import smtplib
 from email.message import EmailMessage
+import ssl
 from typing import Optional
 import logging
 
@@ -34,17 +35,25 @@ TEC_FOOTER_HTML = """
 """
 
 def _crear_cliente_smtp() -> Optional[smtplib.SMTP]:
-    """Crea y autentica el cliente SMTP si las credenciales están configuradas."""
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        logger.warning("Credenciales SMTP no configuradas. Correo simulado.")
+        logger.warning("Credenciales SMTP no configuradas.")
         return None
+
     try:
-        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT)
-        server.starttls()
+        server = smtplib.SMTP_SSL(
+            settings.SMTP_HOST,
+            settings.SMTP_PORT,
+            timeout=20,
+            context=ssl.create_default_context()
+        )
+
         server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+
+        logger.info("Conexión y autenticación SMTP exitosas.")
         return server
+
     except Exception as e:
-        logger.error(f"Error al conectar con SMTP: {e}")
+        logger.exception(f"Error al conectar con SMTP: {e}")
         return None
 
 def enviar_correo_inscripcion(to_email: str, nombre_alumno: str, nombre_proyecto: str, nombre_socioformador: str):
@@ -101,7 +110,7 @@ def enviar_correo_baja(to_email: str, nombre_alumno: str, nombre_proyecto: str, 
     """
     _enviar_html(to_email, asunto, html_content)
 
-def _enviar_html(to_email: str, asunto: str, html_content: str):
+def _enviar_html(to_email: str, asunto: str, html_content: str) -> bool:
     """Lógica común para forjar y despachar un EmailMessage."""
     logger.info(f"[EMAIL SIMULADO/ENVIADO] Para: {to_email} | Asunto: {asunto}")
     
@@ -132,11 +141,81 @@ def _enviar_html(to_email: str, asunto: str, html_content: str):
             logger.warning(f"No se pudo cargar el logo para el correo: {e}")
 
     server = _crear_cliente_smtp()
-    if server:
+    if server is None:
+        logger.info(f"No se pudo enviar  correo a {to_email}")
+        return False  
+    try:
+        server.send_message(msg)
+        logger.info(f"Correo enviado correctamente a {to_email}")
+        return True
+    except Exception as e:
+        logger.error(f"Error despachando correo a {to_email}: {e}")
+        return False
+    finally:
         try:
-            server.send_message(msg)
-            logger.info(f"Correo enviado correctamente a {to_email}")
-        except Exception as e:
-            logger.error(f"Error despachando correo a {to_email}: {e}")
-        finally:
             server.quit()
+        except Exception:
+            pass
+
+def enviar_correo_credenciales_socioformador(
+    to_email: str,
+    nombre_socioformador: str,
+    matricula: str,
+    password_temporal: str
+) -> bool:
+    """Envía las credenciales de acceso a un nuevo socioformador."""
+
+    asunto = "Bienvenido a la Feria del Servicio Social - Credenciales de acceso"
+
+    esc_nombre = html.escape(nombre_socioformador)
+    esc_matricula = html.escape(matricula)
+    esc_password = html.escape(password_temporal)
+
+    html_content = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333;
+                   line-height: 1.6; max-width: 600px; margin: 0 auto;
+                   padding: 20px;">
+
+        <h2 style="color: #003865;">
+          Feria del Servicio Social - TEC CCM
+        </h2>
+
+        <p>Hola <strong>{esc_nombre}</strong>,</p>
+
+        <p>
+          Tu organización ha sido registrada exitosamente en la
+          plataforma de la Feria del Servicio Social.
+        </p>
+
+        <p>Estas son tus credenciales para iniciar sesión:</p>
+
+        <div style="background-color: #f4f6f9; padding: 20px;
+                    border-left: 4px solid #003865; margin: 20px 0;">
+
+          <p><strong>Matrícula:</strong> {esc_matricula}</p>
+
+          <p><strong>Correo:</strong> {html.escape(to_email)}</p>
+
+          <p><strong>Contraseña temporal:</strong></p>
+
+          <p style="font-size: 18px; font-weight: bold;
+                    color: #003865;">
+            {esc_password}
+          </p>
+        </div>
+
+        <p>
+          Te recomendamos cambiar tu contraseña después de iniciar
+          sesión y mantener tus credenciales seguras.
+        </p>
+
+        <p>¡Bienvenido!</p>
+
+        {TEC_FOOTER_HTML}
+
+      </body>
+    </html>
+    """
+
+    return _enviar_html(to_email, asunto, html_content)
