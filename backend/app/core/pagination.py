@@ -30,7 +30,7 @@ async def paginate(
         }
     """
     page = max(1, page)
-    page_size = max(1, min(page_size, 100))
+    page_size = max(1, min(page_size, 250))
 
     # Count total rows
     count_query = select(func.count()).select_from(query.subquery())

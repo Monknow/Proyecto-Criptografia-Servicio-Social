@@ -392,6 +392,7 @@ export default function AdminDashboard() {
     const fetchData = async () => {
         try {
             const [ps, es, evs] = await Promise.all([
+                // Proyectos no tiene paginación implementada, por lo que traer todos
                 fetch(apiUrl("/api/v1/admin/proyectos?page_size=250"), {credentials: "include"})
                     .then((res) => res.json())
                     .then((d) => (Array.isArray(d) ? d : (d?.data ?? []))),
