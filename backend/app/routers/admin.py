@@ -77,7 +77,7 @@ async def api_listar_proyectos(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1, le=250),
 ):
     """Lista los proyectos del evento activo con stats de cupo."""
     return await admin_service.listar_proyectos(db, page=page, page_size=page_size)

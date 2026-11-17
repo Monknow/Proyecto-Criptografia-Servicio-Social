@@ -251,7 +251,7 @@ async def get_operational_summary(db: AsyncSession, window_minutes: int = 60) ->
     }
 
 
-async def get_login_events(db: AsyncSession, page: int = 1, page_size: int = 50) -> dict:
+async def get_login_events(db: AsyncSession, page: int = 1, page_size: int = 250) -> dict:
     base_query = (
         select(
             LogAuditoria.id_log,

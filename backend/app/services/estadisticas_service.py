@@ -188,7 +188,7 @@ async def get_general_contract(
         include_security_metrics=False,
     )
     ocupacion_eventos = await get_ocupacion_eventos(db, evento_id)
-    alumnos_por_carrera_result = await get_alumnos_por_carrera(db, evento_id, None, page_size=100)
+    alumnos_por_carrera_result = await get_alumnos_por_carrera(db, evento_id, None, page_size=250)
     alumnos_por_carrera = alumnos_por_carrera_result.get("data", alumnos_por_carrera_result) if isinstance(alumnos_por_carrera_result, dict) else alumnos_por_carrera_result
     tendencia = await get_inscripciones_timeline(
         db,
@@ -256,7 +256,7 @@ async def get_overview_contract(db: AsyncSession, evento_id: int | None = None) 
     selected_evento_id = evento.id_evento
     kpis = await get_kpis(db, evento_id=selected_evento_id, include_security_metrics=False)
     proyectos = await get_proyectos_cupo(db, evento_id=selected_evento_id)
-    carreras_result = await get_alumnos_por_carrera(db, evento_id=selected_evento_id, page_size=100)
+    carreras_result = await get_alumnos_por_carrera(db, evento_id=selected_evento_id, page_size=250)
     carreras = carreras_result.get("data", []) if isinstance(carreras_result, dict) else carreras_result
     socioformadores_result = await get_alumnos_por_socioformador(db, evento_id=selected_evento_id, page_size=8)
     socioformadores = socioformadores_result.get("data", []) if isinstance(socioformadores_result, dict) else socioformadores_result
@@ -424,7 +424,7 @@ async def get_particular_contract(
     if proyecto_id is not None:
         proyectos_cupo = [item for item in proyectos_cupo if int(item.get("id_proyecto", 0)) == proyecto_id]
 
-    alumnos_socioformador_result = await get_alumnos_por_socioformador(db, evento_id, page_size=100)
+    alumnos_socioformador_result = await get_alumnos_por_socioformador(db, evento_id, page_size=250)
     alumnos_socioformador = alumnos_socioformador_result.get("data", alumnos_socioformador_result) if isinstance(alumnos_socioformador_result, dict) else alumnos_socioformador_result
     ratio = await get_ratio_inscritos(db, evento_id=evento_id, socioformador_id=socioformador_id, carrera=carrera)
     if proyecto_id is not None:
@@ -770,7 +770,7 @@ async def get_alumnos_por_carrera(
     carreras = sorted(carrera_map.values(), key=lambda item: item["cantidad"], reverse=True)
 
     page = max(1, page)
-    page_size = max(1, min(page_size, 100))
+    page_size = max(1, min(page_size, 250))
     total = len(carreras)
     pages = max(1, -(-total // page_size))
     offset = (page - 1) * page_size
