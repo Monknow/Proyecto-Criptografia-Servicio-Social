@@ -18,7 +18,7 @@ async def paginate(
         db: Async database session
         query: SQLAlchemy Select statement
         page: Page number (1-based, min 1)
-        page_size: Items per page (min 1, max 100)
+        page_size: Items per page (min 1, max 250)
 
     Returns:
         {
@@ -30,7 +30,7 @@ async def paginate(
         }
     """
     page = max(1, page)
-    page_size = max(1, min(page_size, 100))
+    page_size = max(1, min(page_size, 250))
 
     # Count total rows
     count_query = select(func.count()).select_from(query.subquery())

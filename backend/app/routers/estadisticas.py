@@ -44,7 +44,7 @@ async def api_proyectos_cupo(
 async def api_alumnos_por_socioformador(
     evento_id: int | None = None,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1, le=250),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
@@ -56,7 +56,7 @@ async def api_alumnos_por_carrera(
     evento_id: int | None = None,
     carrera: str | None = None,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1, le=250),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
@@ -144,7 +144,7 @@ async def api_embudo_conversion(
 @router.get("/api/v1/admin/estadisticas/logs-recientes", tags=["Admin", "Estadisticas"])
 async def api_logs_recientes(
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1, le=250),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
@@ -156,8 +156,8 @@ async def api_alertas_proyectos(
     evento_id: int | None = None,
     socioformador_id: int | None = None,
     proyecto_id: int | None = None,
-    min_ocupacion_pct: float = Query(default=40.0, ge=0, le=100),
-    ocupacion_alta_pct: float = Query(default=90.0, ge=0, le=100),
+    min_ocupacion_pct: float = Query(default=40.0, ge=0, le=250),
+    ocupacion_alta_pct: float = Query(default=90.0, ge=0, le=250),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):

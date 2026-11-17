@@ -65,7 +65,7 @@ async def api_cache_stats(
 @router.get("/api/v1/admin/sistema/login-eventos", tags=["Admin", "Sistema"])
 async def api_login_eventos(
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
+    page_size: int = Query(default=50, ge=1, le=250),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):

@@ -392,7 +392,8 @@ export default function AdminDashboard() {
     const fetchData = async () => {
         try {
             const [ps, es, evs] = await Promise.all([
-                fetch(apiUrl("/api/v1/admin/proyectos?page_size=100"), {credentials: "include"})
+                // Proyectos no tiene paginación implementada, por lo que traer todos
+                fetch(apiUrl("/api/v1/admin/proyectos?page_size=250"), {credentials: "include"})
                     .then((res) => res.json())
                     .then((d) => (Array.isArray(d) ? d : (d?.data ?? []))),
                 fetch(apiUrl("/api/v1/admin/socioformadores"), {credentials: "include"})
@@ -519,9 +520,7 @@ export default function AdminDashboard() {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                const detail = Array.isArray(data.detail)
-                    ? data.detail.map((d) => d.msg).join(", ")
-                    : data.detail;
+                const detail = Array.isArray(data.detail) ? data.detail.map((d) => d.msg).join(", ") : data.detail;
                 throw new Error(detail || "No se pudo crear el proyecto");
             }
             setIsCrearProyectoOpen(false);
@@ -1374,7 +1373,7 @@ export default function AdminDashboard() {
                                 <button
                                     onClick={() => handleSectionChange("proyectos")}
                                     className={`whitespace-nowrap text-[11px] font-normal uppercase tracking-wider px-3 py-1.5 rounded-full border transition-colors ${activeSection === "proyectos" ? "bg-blue-600/25 border-blue-400/35 text-white" : "bg-white/5 border-white/15 text-white/70 hover:text-white"}`}>
-                                    Proyectos ({proyectos.length})
+                                    Proyectos
                                 </button>
                                 <button
                                     onClick={() => handleSectionChange("gestion")}
