@@ -18,7 +18,7 @@ async def paginate(
         db: Async database session
         query: SQLAlchemy Select statement
         page: Page number (1-based, min 1)
-        page_size: Items per page (min 1, max 100)
+        page_size: Items per page (min 1, max 250)
 
     Returns:
         {
