@@ -205,11 +205,6 @@ def enviar_correo_credenciales_socioformador(
           </p>
         </div>
 
-        <p>
-          Te recomendamos cambiar tu contraseña después de iniciar
-          sesión y mantener tus credenciales seguras.
-        </p>
-
         <p>¡Bienvenido!</p>
 
         {TEC_FOOTER_HTML}
